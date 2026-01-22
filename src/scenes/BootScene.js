@@ -137,6 +137,7 @@ export default class BootScene extends Phaser.Scene {
         this.load.audio('bird-cry', 'assets/sounds/birdcry.wav');
         this.load.audio('plane-explode', 'assets/sounds/explosion1.wav');
         this.load.audio('zeppelin-down', 'assets/sounds/zepplindown.wav');
+        this.load.audio('victory', 'assets/sounds/Victory.wav');
     }
 
     create() {

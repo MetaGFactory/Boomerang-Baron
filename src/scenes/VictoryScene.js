@@ -15,6 +15,9 @@ export default class VictoryScene extends Phaser.Scene {
         this.bg = this.add.tileSprite(0, 0, width, height, 'bg-mountains')
             .setOrigin(0, 0);
 
+        // Play victory sound
+        this.sound.play('victory', { volume: 0.5 });
+
         // Victory text
         const victory = this.add.text(width / 2, 80, 'VICTORY!', {
             fontFamily: 'monospace',
