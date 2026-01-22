@@ -1,0 +1,18 @@
+{
+    "name": "red-baron-ape",
+    "version": "1.0.0",
+    "description": "Boomerang Baron ~Banana Warfare~ - A 16-bit pixel art side-scrolling shooter game",
+    "main": "index.html",
+    "scripts": {
+        "start": "python -m http.server 8080",
+        "dev": "npx serve ."
+    },
+    "keywords": [
+        "game",
+        "phaser",
+        "pixel-art",
+        "shooter"
+    ],
+    "author": "",
+    "license": "MIT"
+}
