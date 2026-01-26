@@ -44,6 +44,8 @@ export default class GameScene extends Phaser.Scene {
         this.boss = null;
         this.bossHP = 0;
         this.bossMaxHP = 0;
+        this.bossType = null; // 'zeppelin' or 'turtle'
+        this.turtleStalledTurrets = []; // Turrets spawned during turtle stalled phase
 
         // Paratrooper system
         this.lastParatrooperTime = 0;
@@ -74,6 +76,9 @@ export default class GameScene extends Phaser.Scene {
         this.paratroopers = this.physics.add.group();
         this.helperBullets = this.physics.add.group();
 
+        // Turtle boss magnetic missiles
+        this.magneticMissiles = this.physics.add.group();
+
         // Setup input
         this.setupInput();
 
@@ -100,6 +105,29 @@ export default class GameScene extends Phaser.Scene {
 
         // Show level intro
         this.showLevelIntro();
+
+        // DEBUG: X key to instantly kill boss for testing transitions
+        this.input.keyboard.on('keydown-X', () => {
+            if (this.boss && this.boss.active) {
+                console.log('DEBUG: Killing boss instantly');
+                this.bossHP = 0;
+                this.defeatBoss();
+            }
+        });
+
+        // DEBUG: Z key to skip to final boss (Black Baron)
+        this.input.keyboard.on('keydown-Z', () => {
+            console.log('DEBUG: Skipping to Level 3 Black Baron');
+            this.sound.stopAll();
+            this.cameras.main.fadeOut(500, 0, 0, 0);
+            this.cameras.main.once('camerafadeoutcomplete', () => {
+                this.scene.start('BlackBaronScene', {
+                    level: 3,
+                    score: this.score,
+                    fromMainGame: true
+                });
+            });
+        });
     }
 
     // ============== BACKGROUNDS ==============
@@ -137,7 +165,7 @@ export default class GameScene extends Phaser.Scene {
         this.player.setScale(0.35); // 344x344 scaled down to ~120px
         this.player.setCollideWorldBounds(true);
         this.player.setDepth(10);
-        this.player.body.setSize(280, 180);  // Hitbox relative to full sprite size
+        this.player.body.setSize(210, 135);  // Hitbox reduced 25% for easier bullet dodging
         this.player.body.setOffset(24, 23);
     }
 
@@ -1074,34 +1102,84 @@ export default class GameScene extends Phaser.Scene {
 
         this.cameras.main.shake(500, 0.01);
 
-        // Play zeppelin approach sound
-        this.sound.play('zeppelin-approach', { volume: 0.8 });
+        // Only play zeppelin approach sound and boss music for level 1 (Zeppelin boss)
+        if (this.level === 1) {
+            this.sound.play('zeppelin-approach', { volume: 0.8 });
 
-        // Fade out overworld music and start boss music
-        if (this.overworldMusic && this.overworldMusic.isPlaying) {
-            this.tweens.add({
-                targets: this.overworldMusic,
-                volume: 0,
-                duration: 1500,
-                onComplete: () => {
-                    this.overworldMusic.stop();
-                }
+            // Fade out overworld music and start boss music
+            if (this.overworldMusic && this.overworldMusic.isPlaying) {
+                this.tweens.add({
+                    targets: this.overworldMusic,
+                    volume: 0,
+                    duration: 1500,
+                    onComplete: () => {
+                        this.overworldMusic.stop();
+                    }
+                });
+            }
+
+            // Start boss battle music
+            this.bossMusic = this.sound.add('boss-theme', { loop: true, volume: 0.7 });
+            this.time.delayedCall(1000, () => {
+                this.bossMusic.play();
             });
+        } else {
+            // For level 2+ bosses, just fade out overworld music (boss scenes handle their own audio)
+            if (this.overworldMusic && this.overworldMusic.isPlaying) {
+                this.tweens.add({
+                    targets: this.overworldMusic,
+                    volume: 0,
+                    duration: 1500,
+                    onComplete: () => {
+                        this.overworldMusic.stop();
+                    }
+                });
+            }
         }
-
-        // Start boss battle music
-        this.bossMusic = this.sound.add('boss-theme', { loop: true, volume: 0.7 });
-        this.time.delayedCall(1000, () => {
-            this.bossMusic.play();
-        });
     }
 
     spawnBoss() {
+        // Level-based boss selection
+        if (this.level === 2) {
+            // Level 2: Turtle Boss - Transition to TurtleBossScene with fade effect
+            this.cameras.main.fadeOut(1000, 0, 0, 0);
+            this.cameras.main.once('camerafadeoutcomplete', () => {
+                // Stop all sounds before transitioning
+                this.sound.stopAll();
+                // Start TurtleBossScene, passing game state for continuity
+                this.scene.start('TurtleBossScene', {
+                    level: this.level,
+                    score: this.score,
+                    fromMainGame: true
+                });
+            });
+        } else if (this.level >= 3) {
+            // Level 3+: Black Baron - Transition to BlackBaronScene with fade effect
+            this.cameras.main.fadeOut(1000, 0, 0, 0);
+            this.cameras.main.once('camerafadeoutcomplete', () => {
+                // Stop all sounds before transitioning
+                this.sound.stopAll();
+                // Start BlackBaronScene, passing game state for continuity
+                this.scene.start('BlackBaronScene', {
+                    level: this.level,
+                    score: this.score,
+                    fromMainGame: true
+                });
+            });
+        } else {
+            // Level 1: Zeppelin Boss
+            this.spawnZeppelinBoss();
+        }
+    }
+
+    spawnZeppelinBoss() {
+        this.bossType = 'zeppelin';
+
         this.boss = this.physics.add.sprite(900, 225, 'boss-zeppelin');
         this.boss.setScale(1.5);
         this.boss.setDepth(5);
-        this.boss.body.setSize(245, 205); // Width reduced by additional 70px for left offset
-        this.boss.body.setOffset(105, 30); // 105px from left front (35 + 70), 30px from top
+        this.boss.body.setSize(245, 205);
+        this.boss.body.setOffset(105, 30);
 
         this.bossMaxHP = 500 + (this.level * 200);
         this.bossHP = this.bossMaxHP;
@@ -1125,9 +1203,66 @@ export default class GameScene extends Phaser.Scene {
         });
     }
 
+    spawnTurtleBoss() {
+        this.bossType = 'turtle';
+
+        // Spawn at bottom right, walks onto screen
+        this.boss = this.physics.add.sprite(850, 380, 'boss-turtle');
+        this.boss.setScale(1.2);
+        this.boss.setDepth(8);
+        this.boss.play('turtle-walk');
+
+        // Turtle has 2x Zeppelin health
+        this.bossMaxHP = 1000 + (this.level * 400);
+        this.bossHP = this.bossMaxHP;
+
+        // Movement
+        this.boss.walkSpeed = 50;
+        this.boss.walkDirection = -1; // Start walking left
+        this.boss.setFlipX(true);
+        this.boss.setVelocityX(-this.boss.walkSpeed);
+
+        // State machine
+        this.boss.state = 'walking';
+        this.boss.lastFireTime = 0;
+        this.boss.fireCooldown = 3000;
+
+        // Hitbox
+        this.boss.body.setSize(180, 150);
+        this.boss.body.setOffset(10, 50);
+
+        // Enter animation - walk to center-right
+        this.tweens.add({
+            targets: this.boss,
+            x: 600,
+            duration: 3000,
+            ease: 'Linear',
+            onComplete: () => {
+                // Setup collisions after entry
+                this.physics.add.overlap(this.boomerangs, this.boss, this.hitTurtleWithBoomerang, null, this);
+                this.physics.add.overlap(this.coconuts, this.boss, this.hitTurtleWithCoconut, null, this);
+                this.physics.add.overlap(this.pineapples, this.boss, this.hitBossWithPineapple, null, this);
+                this.physics.add.overlap(this.player, this.boss, this.playerHitByEnemy, null, this);
+
+                // Magnetic missile collisions
+                this.physics.add.overlap(this.magneticMissiles, this.boss, this.missileHitsTurtle, null, this);
+                this.physics.add.overlap(this.magneticMissiles, this.player, this.magneticMissileHitsPlayer, null, this);
+
+                this.bossHealthContainer.setVisible(true);
+            }
+        });
+    }
+
     updateBoss(time) {
         if (!this.boss || !this.boss.active) return;
 
+        // Route to boss-specific update
+        if (this.bossType === 'turtle') {
+            this.updateTurtleBoss(time);
+            return;
+        }
+
+        // Zeppelin boss logic below
         // Initialize boss phase system
         if (!this.bossPhase) {
             this.bossPhase = 'normal';
@@ -1719,5 +1854,383 @@ export default class GameScene extends Phaser.Scene {
         this.enemyBullets.getChildren().forEach(b => {
             if (b.x < -50 || b.x > 850 || b.y < -50 || b.y > 500) b.destroy();
         });
+    }
+
+    // ============== TURTLE BOSS METHODS ==============
+
+    updateTurtleBoss(time) {
+        if (!this.boss || !this.boss.active) return;
+
+        const healthPercent = this.bossHP / this.bossMaxHP;
+
+        // Handle damage phases
+        if (healthPercent <= 0) {
+            this.defeatTurtleBoss();
+            return;
+        } else if (healthPercent <= 0.10 && this.boss.state !== 'stalled-critical') {
+            this.enterTurtleCriticalPhase();
+        } else if (healthPercent <= 0.25 && this.boss.state !== 'stalled' && this.boss.state !== 'stalled-critical') {
+            this.enterTurtleStalledPhase();
+        }
+
+        // State-based behavior
+        switch (this.boss.state) {
+            case 'walking':
+                this.updateTurtleWalking(time);
+                break;
+            case 'squatting':
+            case 'firing':
+                // Waiting for animation sequences
+                break;
+            case 'stalled':
+            case 'stalled-critical':
+                // Turrets handle combat, turtle just smokes
+                this.updateTurtleStalledTurrets(time);
+                break;
+        }
+
+        // Update magnetic missiles
+        this.updateMagneticMissiles();
+
+        // Update boss health bar
+        this.updateBossHealthBar();
+    }
+
+    updateTurtleWalking(time) {
+        // Boundary check - turn around at edges
+        if (this.boss.x >= 700) {
+            this.boss.walkDirection = -1;
+            this.boss.setFlipX(true);
+        } else if (this.boss.x <= 100) {
+            this.boss.walkDirection = 1;
+            this.boss.setFlipX(false);
+        }
+
+        this.boss.setVelocityX(this.boss.walkSpeed * this.boss.walkDirection);
+
+        // Check if time to fire
+        if (time > this.boss.lastFireTime + this.boss.fireCooldown) {
+            this.startTurtleFireSequence(time);
+        }
+    }
+
+    startTurtleFireSequence(time) {
+        this.boss.state = 'squatting';
+        this.boss.setVelocityX(0);
+        this.boss.play('turtle-squat');
+
+        // After squat, fire
+        this.time.delayedCall(500, () => {
+            if (this.boss && this.boss.active && this.boss.state === 'squatting') {
+                this.boss.state = 'firing';
+                this.boss.play('turtle-fire');
+                this.turtleFireMissile();
+
+                // After firing, resume walking
+                this.time.delayedCall(500, () => {
+                    if (this.boss && this.boss.active && this.boss.state === 'firing') {
+                        this.boss.state = 'walking';
+                        this.boss.play('turtle-walk');
+                        this.boss.lastFireTime = time;
+                    }
+                });
+            }
+        });
+    }
+
+    turtleFireMissile() {
+        // Fire missile upward from turtle's launcher
+        const missile = this.magneticMissiles.create(this.boss.x, this.boss.y - 50, 'boss-missile');
+        missile.setScale(0.8);
+        missile.setDepth(9);
+        missile.setVelocity(0, -200); // Fire upward
+        missile.body.setSize(30, 40);
+
+        // Magnetic properties
+        missile.isMagnetic = true;
+        missile.magneticStrength = 0.15;
+    }
+
+    updateMagneticMissiles() {
+        this.magneticMissiles.getChildren().forEach(missile => {
+            if (!missile.active) return;
+
+            const distToPlayer = Phaser.Math.Distance.Between(
+                missile.x, missile.y,
+                this.player.x, this.player.y
+            );
+
+            // Magnetic pull range
+            const magnetRange = 180;
+
+            if (distToPlayer < magnetRange) {
+                // Calculate gravitational pull toward player
+                const angle = Phaser.Math.Angle.Between(
+                    missile.x, missile.y,
+                    this.player.x, this.player.y
+                );
+
+                // Apply pull force
+                const pullStrength = missile.magneticStrength * (magnetRange - distToPlayer);
+
+                // Get current velocity
+                let vx = missile.body.velocity.x;
+                let vy = missile.body.velocity.y;
+
+                // Add gravitational pull
+                vx += Math.cos(angle) * pullStrength;
+                vy += Math.sin(angle) * pullStrength;
+
+                // Cap maximum speed
+                const maxSpeed = 350;
+                const currentSpeed = Math.sqrt(vx * vx + vy * vy);
+                if (currentSpeed > maxSpeed) {
+                    vx = (vx / currentSpeed) * maxSpeed;
+                    vy = (vy / currentSpeed) * maxSpeed;
+                }
+
+                missile.setVelocity(vx, vy);
+
+                // Rotate missile to face direction
+                missile.setRotation(Math.atan2(vy, vx) + Math.PI / 2);
+            }
+
+            // Destroy if off screen
+            if (missile.y > 500 || missile.y < -50 || missile.x < -50 || missile.x > 850) {
+                missile.destroy();
+            }
+        });
+    }
+
+    enterTurtleStalledPhase() {
+        this.boss.state = 'stalled';
+        this.boss.setVelocityX(0);
+        this.boss.play('turtle-damaged1');
+
+        // Spawn turrets on either side
+        this.spawnTurtleStalledTurrets();
+
+        // Start smoke effect
+        this.boss.smokeTimer = this.time.addEvent({
+            delay: 200,
+            callback: () => this.createTurtleSmoke(this.boss.x, this.boss.y - 60, 'light'),
+            loop: true
+        });
+    }
+
+    enterTurtleCriticalPhase() {
+        this.boss.state = 'stalled-critical';
+        this.boss.play('turtle-damaged2');
+
+        // Heavier smoke
+        if (this.boss.smokeTimer) this.boss.smokeTimer.remove();
+        this.boss.smokeTimer = this.time.addEvent({
+            delay: 100,
+            callback: () => this.createTurtleSmoke(this.boss.x, this.boss.y - 60, 'heavy'),
+            loop: true
+        });
+    }
+
+    spawnTurtleStalledTurrets() {
+        // Left turret
+        const leftTurret = this.physics.add.sprite(this.boss.x - 100, 400, 'turret');
+        leftTurret.setScale(0.7);
+        leftTurret.setDepth(7);
+        leftTurret.health = 3;
+        leftTurret.lastShot = this.time.now;
+        leftTurret.shootDelay = 2000;
+        leftTurret.play('turret-idle');
+        this.turtleStalledTurrets.push(leftTurret);
+
+        // Right turret
+        const rightTurret = this.physics.add.sprite(this.boss.x + 100, 400, 'turret');
+        rightTurret.setScale(0.7);
+        rightTurret.setDepth(7);
+        rightTurret.health = 3;
+        rightTurret.lastShot = this.time.now;
+        rightTurret.shootDelay = 2000;
+        rightTurret.play('turret-idle');
+        this.turtleStalledTurrets.push(rightTurret);
+
+        // Add collision for turrets
+        this.turtleStalledTurrets.forEach(turret => {
+            this.physics.add.overlap(this.coconuts, turret, this.hitTurretWithCoconut, null, this);
+            this.physics.add.overlap(this.boomerangs, turret, (boomerang, t) => {
+                t.health -= boomerang.power;
+                if (t.health <= 0) {
+                    this.createExplosion(t.x, t.y, 'large');
+                    this.sound.play('bomb-explode', { volume: 0.3 });
+                    const idx = this.turtleStalledTurrets.indexOf(t);
+                    if (idx > -1) this.turtleStalledTurrets.splice(idx, 1);
+                    t.destroy();
+                }
+            }, null, this);
+        });
+    }
+
+    updateTurtleStalledTurrets(time) {
+        this.turtleStalledTurrets.forEach(turret => {
+            if (!turret.active) return;
+
+            if (time > turret.lastShot + turret.shootDelay) {
+                this.turretShoot(turret);
+                turret.lastShot = time;
+            }
+        });
+    }
+
+    createTurtleSmoke(x, y, intensity) {
+        const size = intensity === 'heavy' ? Phaser.Math.Between(15, 25) : Phaser.Math.Between(8, 15);
+        const smoke = this.add.circle(
+            x + Phaser.Math.Between(-20, 20),
+            y,
+            size,
+            0x444444,
+            0.7
+        );
+        smoke.setDepth(12);
+
+        this.tweens.add({
+            targets: smoke,
+            alpha: 0,
+            y: smoke.y - 40,
+            scale: 1.5,
+            duration: 800,
+            onComplete: () => smoke.destroy()
+        });
+    }
+
+    defeatTurtleBoss() {
+        if (this.boss.state === 'dead') return;
+        this.boss.state = 'dead';
+
+        // Stop timers
+        if (this.boss.smokeTimer) this.boss.smokeTimer.remove();
+
+        // Destroy stalled turrets
+        this.turtleStalledTurrets.forEach(t => {
+            if (t.active) t.destroy();
+        });
+        this.turtleStalledTurrets = [];
+
+        // Play death animation
+        this.boss.setVelocity(0, 0);
+        this.boss.play('turtle-death');
+
+        // Multiple explosions
+        for (let i = 0; i < 10; i++) {
+            this.time.delayedCall(i * 150, () => {
+                if (this.boss) {
+                    const ex = this.boss.x + Phaser.Math.Between(-60, 60);
+                    const ey = this.boss.y + Phaser.Math.Between(-40, 40);
+                    this.createExplosion(ex, ey, 'large');
+                    this.cameras.main.shake(100, 0.02);
+                }
+            });
+        }
+
+        // Call standard boss defeat after explosions
+        this.time.delayedCall(1500, () => {
+            this.defeatBoss();
+        });
+    }
+
+    // Coconut bounce off turtle shell
+    hitTurtleWithCoconut(coconut, boss) {
+        if (this.bossType !== 'turtle') return;
+
+        // Check if coconut hit from above (bounce)
+        const hitFromAbove = coconut.y < boss.y - 30;
+
+        if (hitFromAbove) {
+            // Bounce the coconut
+            coconut.setVelocity(
+                Phaser.Math.Between(-100, 100),
+                -200 // Bounce upward
+            );
+
+            // Reduced damage (25%)
+            const damage = 10 * 0.25;
+            this.bossHP -= damage;
+
+            // Spark effect
+            this.createBounceEffect(coconut.x, coconut.y);
+
+            // Sound feedback
+            this.cameras.main.shake(50, 0.005);
+        } else {
+            // Side/back hit - normal damage
+            this.bossHP -= 10;
+            coconut.destroy();
+            this.createExplosion(coconut.x, coconut.y, 'small');
+        }
+
+        this.updateBossHealthBar();
+
+        if (this.bossHP <= 0) {
+            this.defeatTurtleBoss();
+        }
+    }
+
+    // Boomerang bounces off turtle shell - NO damage!
+    hitTurtleWithBoomerang(boomerang, boss) {
+        if (this.bossType !== 'turtle') return;
+
+        // Bounce the boomerang away
+        boomerang.outbound = false; // Start returning
+        boomerang.x -= 20; // Push back slightly
+
+        // Create bounce effect sparks
+        this.createBounceEffect(boomerang.x, boomerang.y);
+
+        // Sound feedback - camera shake only, NO damage dealt
+        this.cameras.main.shake(30, 0.003);
+
+        // Brief flash to show hit registered but was deflected
+        boss.setTint(0x888888); // Gray flash instead of red (no damage)
+        this.time.delayedCall(50, () => boss.clearTint());
+    }
+
+    createBounceEffect(x, y) {
+        // Spark particles
+        for (let i = 0; i < 5; i++) {
+            const spark = this.add.circle(x, y, 3, 0xffff00, 1);
+            spark.setDepth(15);
+
+            this.tweens.add({
+                targets: spark,
+                x: x + Phaser.Math.Between(-30, 30),
+                y: y + Phaser.Math.Between(-30, 10),
+                alpha: 0,
+                duration: 300,
+                onComplete: () => spark.destroy()
+            });
+        }
+    }
+
+    // Reflected magnetic missile hits turtle for bonus damage
+    missileHitsTurtle(missile, boss) {
+        // Reflected missile does bonus damage!
+        const bonusDamage = this.bossMaxHP / 6; // Dies in 6 hits
+        this.bossHP -= bonusDamage;
+
+        missile.destroy();
+        this.createExplosion(missile.x, missile.y, 'large');
+        this.cameras.main.shake(150, 0.02);
+
+        this.updateBossHealthBar();
+
+        if (this.bossHP <= 0) {
+            this.defeatTurtleBoss();
+        }
+    }
+
+    // Magnetic missile damages player
+    magneticMissileHitsPlayer(player, missile) {
+        if (this.isInvincible) return;
+
+        this.takeDamage(20);
+        missile.destroy();
+        this.createExplosion(missile.x, missile.y, 'small');
     }
 }

@@ -83,8 +83,26 @@ export default class BootScene extends Phaser.Scene {
 
         // ============== BOSS ==============
         this.load.image('boss-zeppelin', 'assets/sprites/boss-zeppelin.png');
-        this.load.image('boss-missile', 'assets/sprites/boss-missile.png');
+        // Boss missile spritesheet: 2 frames (without/with flame), 192x64 total (96x64 per frame)
+        this.load.spritesheet('boss-missile', 'assets/sprites/boss-missile.png', {
+            frameWidth: 96,
+            frameHeight: 64
+        });
         this.load.image('boss-bomb', 'assets/sprites/boss-bomb.png');
+        // Turtle Mech Boss - 11 frames (200x200 each)
+        this.load.spritesheet('boss-turtle', 'assets/sprites/turtle-boss-11frame.png', {
+            frameWidth: 200,
+            frameHeight: 200
+        });
+
+        // Black Baron Boss - 4 frames (300x300 each: idle, up, down, damaged)
+        this.load.spritesheet('boss-blackbaron', 'assets/sprites/BlackBaronbiplane_4frames.png', {
+            frameWidth: 300,
+            frameHeight: 300
+        });
+
+        // Black Baron cutscene video
+        this.load.video('blackbaron-intro', 'assets/Videos/BlackBaron.mp4');
 
         // ============== EFFECTS ==============
         this.load.spritesheet('explosion', 'assets/sprites/explosion.png', {
@@ -137,7 +155,23 @@ export default class BootScene extends Phaser.Scene {
         this.load.audio('bird-cry', 'assets/sounds/birdcry.wav');
         this.load.audio('plane-explode', 'assets/sounds/explosion1.wav');
         this.load.audio('zeppelin-down', 'assets/sounds/zepplindown.wav');
+        this.load.audio('turtle-approach', 'assets/sounds/TurtleBoss.wav');
         this.load.audio('victory', 'assets/sounds/Victory.wav');
+
+        // Turtle boss impact sounds
+        this.load.audio('coconut-metal-1', 'assets/sounds/Coconutmetal1.mp3');
+        this.load.audio('coconut-metal-2', 'assets/sounds/Coconutmetal2.mp3');
+        this.load.audio('banana-metal', 'assets/sounds/bananametal1.mp3');
+        this.load.audio('turtle-missile-launch', 'assets/sounds/TurtleMissileLaunch.mp3');
+
+        // Black Baron boss sounds
+        this.load.audio('black-baron-approach', 'assets/sounds/BlackBaron.wav');
+        this.load.audio('payload-ready', 'assets/sounds/PayloadOnWay.mp3');
+        this.load.audio('master-of-skies', 'assets/sounds/MasterOfSkies.mp3');
+        this.load.audio('evil-laugh', 'assets/sounds/EvilLaugh.mp3');
+        this.load.audio('time-to-down', 'assets/sounds/TimeToDown.mp3');
+        this.load.audio('zeppelins-inbound', 'assets/sounds/ZeppelinsInbound.mp3');
+        this.load.audio('come-now-minion', 'assets/sounds/ComeNowMyMinion.mp3');
     }
 
     create() {
@@ -165,6 +199,32 @@ export default class BootScene extends Phaser.Scene {
         this.anims.create({
             key: 'biplane-damaged',
             frames: this.anims.generateFrameNumbers('biplane', { start: 3, end: 3 }),
+            frameRate: 1,
+            repeat: -1
+        });
+
+        // Black Baron animations (frame 0: idle, 1: up, 2: down, 3: damaged)
+        this.anims.create({
+            key: 'blackbaron-idle',
+            frames: this.anims.generateFrameNumbers('boss-blackbaron', { start: 0, end: 0 }),
+            frameRate: 1,
+            repeat: -1
+        });
+        this.anims.create({
+            key: 'blackbaron-up',
+            frames: this.anims.generateFrameNumbers('boss-blackbaron', { start: 1, end: 1 }),
+            frameRate: 1,
+            repeat: -1
+        });
+        this.anims.create({
+            key: 'blackbaron-down',
+            frames: this.anims.generateFrameNumbers('boss-blackbaron', { start: 2, end: 2 }),
+            frameRate: 1,
+            repeat: -1
+        });
+        this.anims.create({
+            key: 'blackbaron-damaged',
+            frames: this.anims.generateFrameNumbers('boss-blackbaron', { start: 3, end: 3 }),
             frameRate: 1,
             repeat: -1
         });
@@ -253,6 +313,44 @@ export default class BootScene extends Phaser.Scene {
             frames: this.anims.generateFrameNumbers('turret-missile', { start: 0, end: 1 }),
             frameRate: 8,
             repeat: -1
+        });
+
+        // Turtle Boss animations
+        this.anims.create({
+            key: 'turtle-walk',
+            frames: this.anims.generateFrameNumbers('boss-turtle', { start: 0, end: 5 }),
+            frameRate: 8,
+            repeat: -1
+        });
+        this.anims.create({
+            key: 'turtle-squat',
+            frames: this.anims.generateFrameNumbers('boss-turtle', { start: 7, end: 7 }),
+            frameRate: 1,
+            repeat: 0
+        });
+        this.anims.create({
+            key: 'turtle-fire',
+            frames: this.anims.generateFrameNumbers('boss-turtle', { start: 6, end: 6 }),
+            frameRate: 1,
+            repeat: 0
+        });
+        this.anims.create({
+            key: 'turtle-damaged1',
+            frames: this.anims.generateFrameNumbers('boss-turtle', { start: 8, end: 8 }),
+            frameRate: 1,
+            repeat: 0
+        });
+        this.anims.create({
+            key: 'turtle-damaged2',
+            frames: this.anims.generateFrameNumbers('boss-turtle', { start: 9, end: 9 }),
+            frameRate: 1,
+            repeat: 0
+        });
+        this.anims.create({
+            key: 'turtle-death',
+            frames: this.anims.generateFrameNumbers('boss-turtle', { start: 10, end: 10 }),
+            frameRate: 1,
+            repeat: 0
         });
 
         // Start menu scene

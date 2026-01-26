@@ -144,8 +144,60 @@ export default class MenuScene extends Phaser.Scene {
             });
         });
 
+        // Turtle Boss Battle button - standalone boss fight
+        const bossTestBtn = this.add.text(width / 2, height - 40, '[ TURTLE BOSS BATTLE ]', {
+            fontFamily: 'monospace',
+            fontSize: '16px',
+            fill: '#ff6600',
+            stroke: '#000000',
+            strokeThickness: 3
+        }).setOrigin(0.5);
+
+        bossTestBtn.setInteractive({ useHandCursor: true });
+        bossTestBtn.on('pointerover', () => {
+            bossTestBtn.setScale(1.1);
+            bossTestBtn.setFill('#ffff00');
+        });
+        bossTestBtn.on('pointerout', () => {
+            bossTestBtn.setScale(1);
+            bossTestBtn.setFill('#ff6600');
+        });
+        bossTestBtn.on('pointerdown', () => {
+            this.sound.stopAll();
+            this.cameras.main.flash(500, 255, 100, 0);
+            this.time.delayedCall(300, () => {
+                this.scene.start('TurtleBossScene');
+            });
+        });
+
+        // Black Baron Battle button - rival pilot boss fight
+        const baronBtn = this.add.text(width / 2 + 200, height - 40, '[ BLACK BARON BATTLE ]', {
+            fontFamily: 'monospace',
+            fontSize: '16px',
+            fill: '#333333',
+            stroke: '#ffffff',
+            strokeThickness: 2
+        }).setOrigin(0.5);
+
+        baronBtn.setInteractive({ useHandCursor: true });
+        baronBtn.on('pointerover', () => {
+            baronBtn.setScale(1.1);
+            baronBtn.setFill('#000000');
+        });
+        baronBtn.on('pointerout', () => {
+            baronBtn.setScale(1);
+            baronBtn.setFill('#333333');
+        });
+        baronBtn.on('pointerdown', () => {
+            this.sound.stopAll();
+            this.cameras.main.flash(500, 50, 50, 50);
+            this.time.delayedCall(300, () => {
+                this.scene.start('BlackBaronScene');
+            });
+        });
+
         // Version
-        this.add.text(width - 10, height - 10, 'v1.0', {
+        this.add.text(width - 10, height - 10, 'v1.2', {
             fontFamily: 'monospace',
             fontSize: '10px',
             fill: '#333333'

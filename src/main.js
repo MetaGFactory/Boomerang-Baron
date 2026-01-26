@@ -3,6 +3,9 @@ import MenuScene from './scenes/MenuScene.js';
 import GameScene from './scenes/GameScene.js';
 import GameOverScene from './scenes/GameOverScene.js';
 import VictoryScene from './scenes/VictoryScene.js';
+import BossTestScene from './scenes/BossTestScene.js';
+import TurtleBossScene from './scenes/TurtleBossScene.js';
+import BlackBaronScene from './scenes/BlackBaronScene.js';
 
 const config = {
     type: Phaser.AUTO,
@@ -21,10 +24,13 @@ const config = {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH
     },
-    scene: [BootScene, MenuScene, GameScene, GameOverScene, VictoryScene]
+    scene: [BootScene, MenuScene, GameScene, GameOverScene, VictoryScene, BossTestScene, TurtleBossScene, BlackBaronScene]
 };
 
 const game = new Phaser.Game(config);
+
+// Expose game to window for debugging
+window.game = game;
 
 // Resume audio when returning to the tab
 document.addEventListener('visibilitychange', () => {
